@@ -58,16 +58,16 @@ end
 function key(k, v)
   if k == 1 then
     global_shift = v == 1
-  elseif global_shift then
-    global_loops[global_current_loop]:key(k, v)
-  elseif v == 1 then
-    local current_loop_new = global_current_loop + (k == 3 and 1 or -1)
-    if current_loop_new < 1 then
-      current_loop_new = global_num_loops
-    elseif current_loop_new > global_num_loops then
-      current_loop_new = 1
-    end
-    global_current_loop = current_loop_new
+  else
+    global_loops[global_current_loop]:key(k, v, global_shift)
+    -- elseif v == 1 then
+    --   local current_loop_new = global_current_loop + (k == 3 and 1 or -1)
+    --   if current_loop_new < 1 then
+    --     current_loop_new = global_num_loops
+    --   elseif current_loop_new > global_num_loops then
+    --     current_loop_new = 1
+    --   end
+    --   global_current_loop = current_loop_new
   end
 end
 
@@ -89,7 +89,7 @@ function redraw()
   screen.move(128, 5)
   screen.text_right(string.format("bpm %d", params:get("clock_tempo")))
 
-  global_loops[global_current_loop]:redraw()
+  global_loops[global_current_loop]:redraw(global_shift)
 
   screen.update()
 end

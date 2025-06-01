@@ -21,12 +21,14 @@ function Looper:queue_clean()
 end
 
 function Looper:record_note_on(ch, note, velocity)
+  if params:get("looper_" .. self.id .. "_recording_enable") == 1 then return end
   -- add to the record queue
   print("record_note_on", ch, note, velocity)
   self.record_queue[note] = {ch=ch, note=note, velocity=velocity, beat_start=clock.get_beats()}
 end
 
 function Looper:record_note_off(ch, note)
+  if params:get("looper_" .. self.id .. "_recording_enable") == 1 then return end
   -- find the note in the record queue and add it to the loop
   if self.record_queue[note] then
     print("recording note off for", note, "at", clock.get_beats())
@@ -56,7 +58,8 @@ function Looper:table_contains(tbl, i)
 end
 
 function Looper:note_on(note, velocity)
-  if params:get("looper_" .. self.id .. "_midi_device") == 1 then return end
+  if params:get("looper_" .. self.id .. "_playback_enable") == 1 then return end
+
   self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, params:get(
                                                                                        "looper_" .. self.id ..
                                                                                            "_midi_channel_out"))
@@ -131,7 +134,8 @@ function Looper:init()
   self.beat_last = clock.get_beats()
   self.beat_last_recorded = clock.get_beats()
   self.playing_notes = {}
-  params:add_group("looper_" .. self.id, "Looper " .. self.id, 6)
+  self.do_quantize = false
+  params:add_group("looper_" .. self.id, "Looper " .. self.id, 7)
   -- midi channelt to record on 
   params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, 4)
   params:set_action("looper_" .. self.id .. "_beats", function(value)
@@ -148,23 +152,35 @@ function Looper:init()
   params:add_option("looper_" .. self.id .. "_quantize", "Quantization", {"1/32", "1/16", "1/8", "1/4"}, 1)
 end
 
-function Looper:key(k, v)
-  if k == 3 and v == 1 then
-    -- quantize
-    local quantas = {8, 4, 2, 1}
-    local quanta = quantas[params:get("looper_" .. self.id .. "_quantize")]
-    for i = 1, #self.loop do
-      self.loop[i].beat_start = util.round(self.loop[i].beat_start * quanta) / quanta
-      self.loop[i].beat_end = util.round(self.loop[i].beat_end * quanta) / quanta
-      if self.loop[i].beat_end <= self.loop[i].beat_start then
-        self.loop[i].beat_end = self.loop[i].beat_start + 1 / quanta
+function Looper:key(k, v, shift)
+  if shift then
+    if k == 2 then
+      if v == 1 then
+        self.erase_start = clock.get_beats()
+      else
+        self.erase_start = nil
+      end
+    elseif k == 3 then
+      self.do_quantize = v == 1
+      -- quantize
+      local quantas = {8, 4, 2, 1}
+      local quanta = quantas[params:get("looper_" .. self.id .. "_quantize")]
+      for i = 1, #self.loop do
+        self.loop[i].beat_start = util.round(self.loop[i].beat_start * quanta) / quanta
+        self.loop[i].beat_end = util.round(self.loop[i].beat_end * quanta) / quanta
+        if self.loop[i].beat_end <= self.loop[i].beat_start then
+          self.loop[i].beat_end = self.loop[i].beat_start + 1 / quanta
+        end
       end
     end
-  elseif k == 2 then
-    if v == 1 then
-      self.erase_start = clock.get_beats()
-    else
-      self.erase_start = nil
+  else
+    if k == 2 and v == 1 then
+      -- toggle recording 
+      params:set("looper_" .. self.id .. "_recording_enable",
+                 3 - params:get("looper_" .. self.id .. "_recording_enable"))
+    elseif k == 3 and v == 1 then
+      -- toggle playback
+      params:set("looper_" .. self.id .. "_playback_enable", 3 - params:get("looper_" .. self.id .. "_playback_enable"))
     end
   end
 end
@@ -174,7 +190,7 @@ function Looper:enc(k, d)
   if k == 3 then params:delta("looper_" .. self.id .. "_bars", d) end
 end
 
-function Looper:redraw()
+function Looper:redraw(shift)
   screen.move(1, 5)
   screen.text(string.format("loop %d, %d/%d", self.id, 1 + math.floor(clock.get_beats() % self.total_beats),
                             self.total_beats))
@@ -209,14 +225,56 @@ function Looper:redraw()
     screen.text("o")
   end
 
-  if self.erase_start then
-    screen.move(1, 59)
-    screen.text("erasing")
-    local erase_x = util.round(128 * (clock.get_beats() - self.erase_start) / 2.0)
-    screen.rect(0, 63, erase_x, 3)
-    screen.fill()
-  end
+  if not shift then
+    if params:get("looper_" .. self.id .. "_recording_enable") == 2 then
+      screen.level(15)
+      screen.rect(0, 56, 15, 10)
+      screen.fill()
+      screen.level(0)
+    else
+      screen.level(10)
+    end
+    screen.move(1, 62)
+    screen.text("rec")
+    screen.level(15)
 
+    if params:get("looper_" .. self.id .. "_playback_enable") == 2 then
+      screen.level(15)
+      screen.rect(20, 56, 18, 10)
+      screen.fill()
+      screen.level(0)
+    else
+      screen.level(10)
+    end
+    screen.move(21, 62)
+    screen.text("play")
+    screen.level(15)
+
+  else
+    screen.level(15)
+    screen.move(1, 62)
+    screen.text("erase")
+    screen.blend_mode(1)
+    if self.erase_start then
+      local erase_x = util.round(25 * (clock.get_beats() - self.erase_start) / 2.0)
+      screen.rect(0, 56, erase_x, 8)
+      screen.fill()
+    end
+    screen.blend_mode(0)
+
+    if self.do_quantize then
+      screen.level(15)
+      screen.rect(26, 56, 38, 10)
+      screen.fill()
+      screen.level(0)
+    else
+      screen.level(10)
+    end
+    screen.move(27, 62)
+    screen.text("quantize")
+    screen.level(15)
+
+  end
 end
 
 return Looper
