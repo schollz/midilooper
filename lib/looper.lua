@@ -58,6 +58,20 @@ function Looper:table_contains(tbl, i)
   return false
 end
 
+function Looper:note_on(ch, note, velocity)
+  if params:get("looper_" .. self.id .. "_midi_device") == 1 then return end
+  self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, params:get(
+                                                                                       "looper_" .. self.id ..
+                                                                                           "_midi_channel_out"))
+end
+
+function Looper:note_off(ch, note)
+  if params:get("looper_" .. self.id .. "_midi_device") == 1 then return end
+  self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, params:get(
+                                                                                        "looper_" .. self.id ..
+                                                                                            "_midi_channel_out"))
+end
+
 function Looper:emit()
   self.beat_current = clock.get_beats()
   local current_beat = self.beat_current % self.total_beats
@@ -77,11 +91,13 @@ function Looper:emit()
       else
         -- note is starting in this beat
         print("emit note_on", note_data.ch, note_data.note, note_data.velocity)
+        self:note_on(note_data.ch, note_data.note, note_data.velocity)
       end
     end
     if note_end_beat >= last_beat and note_end_beat <= current_beat then
       -- note is ending in this beat
       print("emit note_off", note_data.ch, note_data.note)
+      self:note_off(note_data.ch, note_data.note)
     end
   end
 
@@ -104,9 +120,9 @@ function Looper:init()
   self.beat_current = clock.get_beats()
   self.beat_last = clock.get_beats()
   self.beat_last_recorded = clock.get_beats()
-  params:add_group("looper_" .. self.id, "Looper " .. self.id, 3)
+  params:add_group("looper_" .. self.id, "Looper " .. self.id, 5)
   -- midi channelt to record on 
-  params:add_number("looper_" .. self.id .. "_midi_channel", "MIDI Channel", 1, 16, 1)
+  params:add_number("looper_" .. self.id .. "_midi_channel", "MIDI IN Channel", 1, 16, 1)
   params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, 4)
   params:set_action("looper_" .. self.id .. "_beats", function(value)
     self.total_beats = value * params:get("looper_" .. self.id .. "_bars")
@@ -115,6 +131,9 @@ function Looper:init()
   params:set_action("looper_" .. self.id .. "_bars", function(value)
     self.total_beats = value * params:get("looper_" .. self.id .. "_beats")
   end)
+  params:add_option("looper_" .. self.id .. "_midi_device", "MIDI Out", self.midi_names, 2)
+  params:add_number("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", 1, 16, 1)
+
 end
 
 function Looper:key(k, v)

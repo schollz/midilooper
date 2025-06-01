@@ -9,14 +9,19 @@ global_current_loop = 1
 function init()
   print("midilooper init")
 
-  for i = 1, global_num_loops do global_loops[i] = looper_:new({id=i}) end
+  local midi_names = {}
+  local midi_device = {}
+  table.insert(midi_names, "None")
+  for i = 1, #midi.vports do
+    table.insert(midi_names, midi.vports[i].name)
+    midi_device[i] = midi.connect(i)
+  end
+
+  for i = 1, global_num_loops do global_loops[i] = looper_:new({id=i, midi_names=midi_names, midi_device=midi_device}) end
   params:bang()
 
   -- connect to all midi devices
-  local midi_device = {}
-  for i = 1, #midi.vports do
-    local name = midi.vports[i].name
-    midi_device[i] = midi.connect(i)
+  for i = 1, #midi_device do
     midi_device[i].event = function(data)
       local d = midi.to_msg(data)
       if d.type == "clock" then
