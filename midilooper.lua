@@ -17,13 +17,19 @@ function init()
     midi_device[i] = midi.connect(i)
   end
 
+  -- global parameters
+  params:add_option("looper_midi_in_device", "MIDI In", midi_names, 2)
+  params:add_number("looper_midi_in_channel", "MIDI In Channel", 1, 16, 1)
+
   for i = 1, global_num_loops do global_loops[i] = looper_:new({id=i, midi_names=midi_names, midi_device=midi_device}) end
   params:bang()
 
   -- connect to all midi devices
   for i = 1, #midi_device do
     midi_device[i].event = function(data)
+      if i ~= params:get("looper_midi_in_device") - 1 then do return end end
       local d = midi.to_msg(data)
+      if d.ch ~= params:get("looper_midi_in_channel") then do return end end
       if d.type == "clock" then
         return
       elseif d.type == "note_on" then

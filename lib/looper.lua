@@ -21,17 +21,12 @@ function Looper:queue_clean()
 end
 
 function Looper:record_note_on(ch, note, velocity)
-  print("record_note_on", ch, note, velocity)
-  if ch ~= params:get("looper_" .. self.id .. "_midi_channel") then return end
-  self:queue_clean()
   -- add to the record queue
+  print("record_note_on", ch, note, velocity)
   self.record_queue[note] = {ch=ch, note=note, velocity=velocity, beat_start=clock.get_beats()}
-  print("note_on", ch, note, velocity, "at", self.record_queue[note].beat_start)
 end
 
 function Looper:record_note_off(ch, note)
-  if ch ~= params:get("looper_" .. self.id .. "_midi_channel") then return end
-  self:queue_clean()
   -- find the note in the record queue and add it to the loop
   if self.record_queue[note] then
     print("recording note off for", note, "at", clock.get_beats())
@@ -120,9 +115,8 @@ function Looper:init()
   self.beat_current = clock.get_beats()
   self.beat_last = clock.get_beats()
   self.beat_last_recorded = clock.get_beats()
-  params:add_group("looper_" .. self.id, "Looper " .. self.id, 5)
+  params:add_group("looper_" .. self.id, "Looper " .. self.id, 4)
   -- midi channelt to record on 
-  params:add_number("looper_" .. self.id .. "_midi_channel", "MIDI IN Channel", 1, 16, 1)
   params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, 4)
   params:set_action("looper_" .. self.id .. "_beats", function(value)
     self.total_beats = value * params:get("looper_" .. self.id .. "_bars")
