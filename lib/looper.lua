@@ -86,7 +86,7 @@ function Looper:emit()
     local note_end_beat = note_data.beat_end % self.total_beats
     if note_start_beat >= last_beat and note_start_beat <= current_beat then
       -- check if anything is in the queue
-      if next(self.record_queue) ~= nil or self.beat_current - self.beat_last_recorded < 0.125 then
+      if next(self.record_queue) ~= nil or self.beat_current - self.beat_last_recorded < 0.25 then
         -- erase this  note
         table.insert(notes_to_erase, i)
         print("queuing note to remove: ", note_data.note, "from loop")
@@ -147,8 +147,8 @@ function Looper:init()
   end)
   params:add_option("looper_" .. self.id .. "_midi_device", "MIDI Out", self.midi_names, 2)
   params:add_number("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", 1, 16, 1)
-  params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"}, 2)
-  params:add_option("looper_" .. self.id .. "_playback_enable", "Playback", {"Disabled", "Enabled"}, 2)
+  params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"}, 1)
+  params:add_option("looper_" .. self.id .. "_playback_enable", "Playback", {"Disabled", "Enabled"}, 1)
   params:add_option("looper_" .. self.id .. "_quantize", "Quantization", {"1/32", "1/16", "1/8", "1/4"}, 1)
 end
 
@@ -194,19 +194,21 @@ function Looper:redraw(shift)
   screen.move(1, 5)
   screen.text(string.format("loop %d, %d/%d", self.id, 1 + math.floor(clock.get_beats() % self.total_beats),
                             self.total_beats))
-  screen.move(1, 12)
-  screen.text(string.format("beats %d, bars %d", params:get("looper_" .. self.id .. "_beats"),
-                            params:get("looper_" .. self.id .. "_bars")))
 
   local x = util.round(128 * (clock.get_beats() % self.total_beats) / self.total_beats)
   -- draw a dot
-  screen.move(x, 45)
-  screen.text("x")
+  screen.level(3)
+  screen.rect(0, 8, x, 2)
+  screen.fill()
+  screen.move(x, 11)
+  screen.text("o")
+  screen.level(15)
+
   screen.move(x, 55)
   -- plot recorded beats
   for i = 1, #self.loop do
     local note_data = self.loop[i]
-    local y_pos = util.round(util.linlin(16, 90, 64, 24, note_data.note))
+    local y_pos = util.round(util.linlin(16, 90, 64, 10, note_data.note))
     local note_start_beat = note_data.beat_start % self.total_beats
     local note_end_beat = note_data.beat_end % self.total_beats
     local start_x = util.round(128 * note_start_beat / self.total_beats)
@@ -219,7 +221,7 @@ function Looper:redraw(shift)
   -- plot starts in the queue
   for note, data in pairs(self.record_queue) do
     local note_start_beat = data.beat_start % self.total_beats
-    local y_pos = util.round(util.linlin(16, 90, 64, 24, note))
+    local y_pos = util.round(util.linlin(16, 90, 64, 10, note))
     local start_x = util.round(128 * note_start_beat / self.total_beats)
     screen.move(start_x, y_pos)
     screen.text("o")
