@@ -44,6 +44,8 @@ function Looper:record_note_off(ch, note)
 end
 
 function Looper:clear_loop()
+  -- turn off every note in playing_notes 
+  for note, _ in pairs(self.playing_notes) do self:note_off(note) end
   self.loop = {}
   self.record_queue = {}
 end
@@ -53,18 +55,20 @@ function Looper:table_contains(tbl, i)
   return false
 end
 
-function Looper:note_on(ch, note, velocity)
+function Looper:note_on(note, velocity)
   if params:get("looper_" .. self.id .. "_midi_device") == 1 then return end
   self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, params:get(
                                                                                        "looper_" .. self.id ..
                                                                                            "_midi_channel_out"))
+  self.playing_notes[note] = true
 end
 
-function Looper:note_off(ch, note)
+function Looper:note_off(note)
   if params:get("looper_" .. self.id .. "_midi_device") == 1 then return end
   self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, params:get(
                                                                                         "looper_" .. self.id ..
                                                                                             "_midi_channel_out"))
+  self.playing_notes[note] = nil
 end
 
 function Looper:emit()
@@ -86,13 +90,13 @@ function Looper:emit()
       else
         -- note is starting in this beat
         print("emit note_on", note_data.ch, note_data.note, note_data.velocity)
-        self:note_on(note_data.ch, note_data.note, note_data.velocity)
+        self:note_on(note_data.note, note_data.velocity)
       end
     end
     if note_end_beat >= last_beat and note_end_beat <= current_beat then
       -- note is ending in this beat
       print("emit note_off", note_data.ch, note_data.note)
-      self:note_off(note_data.ch, note_data.note)
+      self:note_off(note_data.note)
     end
   end
 
@@ -104,6 +108,16 @@ function Looper:emit()
     self.loop = new_loop
   end
 
+  if self.erase_start ~= nil then
+    if self.beat_current - self.erase_start > 2.0 then
+      -- erase the loop
+      print("erasing loop")
+      self:clear_loop()
+      self.erase_start = nil
+    end
+
+  end
+
   self.beat_last = self.beat_current
 end
 
@@ -111,10 +125,12 @@ function Looper:init()
   self.loop = {}
   self.currentLoop = nil
   self.total_beats = 16
+  self.erase_start = nil
   self.record_queue = {}
   self.beat_current = clock.get_beats()
   self.beat_last = clock.get_beats()
   self.beat_last_recorded = clock.get_beats()
+  self.playing_notes = {}
   params:add_group("looper_" .. self.id, "Looper " .. self.id, 4)
   -- midi channelt to record on 
   params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, 4)
@@ -131,12 +147,18 @@ function Looper:init()
 end
 
 function Looper:key(k, v)
-  if k == 3 then
+  if k == 3 and v == 1 then
     -- quantize
     print("quantizing")
     for i = 1, #self.loop do
       self.loop[i].beat_start = util.round(self.loop[i].beat_start * 16) / 16
       self.loop[i].beat_end = util.round(self.loop[i].beat_end * 16) / 16
+    end
+  elseif k == 2 then
+    if v == 1 then
+      self.erase_start = clock.get_beats()
+    else
+      self.erase_start = nil
     end
   end
 end
@@ -179,6 +201,14 @@ function Looper:redraw()
     local start_x = util.round(128 * note_start_beat / self.total_beats)
     screen.move(start_x, y_pos)
     screen.text("o")
+  end
+
+  if self.erase_start then
+    screen.move(1, 59)
+    screen.text("erasing")
+    local erase_x = util.round(128 * (clock.get_beats() - self.erase_start) / 2.0)
+    screen.rect(0, 63, erase_x, 3)
+    screen.fill()
   end
 
 end
