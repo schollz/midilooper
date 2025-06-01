@@ -2,11 +2,11 @@
 
 ## usage
 
-- arm recording
-- clear
-- quantize
-- change loop
-
+- k2: toggle playback
+- k3: toggle recording
+- k1+k2: erase
+- k1+k3: quantize
+- e1: change loop
 
 ## formatting
 
