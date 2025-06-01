@@ -1,5 +1,12 @@
 # midilooper
 
+## usage
+
+- arm recording
+- clear
+- quantize
+- change loop
+
 
 ## formatting
 
