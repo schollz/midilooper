@@ -212,6 +212,7 @@ function Looper:redraw(shift)
 
   screen.move(x, 55)
   -- plot recorded beats
+  screen.blend_mode(2)
   for i = 1, #self.loop do
     local note_data = self.loop[i]
     local y_pos = util.round(util.linlin(16, 90, 64, 10, note_data.note))
@@ -219,19 +220,26 @@ function Looper:redraw(shift)
     local note_end_beat = note_data.beat_end % self.total_beats
     local start_x = util.round(128 * note_start_beat / self.total_beats)
     local end_x = util.round(128 * note_end_beat / self.total_beats)
+    screen.rect(start_x, y_pos - 2, 3, 3)
+    screen.fill()
+    screen.rect(end_x, y_pos-1, 1, 1)
+    screen.fill()
+    screen.level(1)
     screen.move(start_x, y_pos)
-    screen.text("o")
-    screen.move(end_x, y_pos)
-    screen.text("x")
+    screen.line(end_x, y_pos)
+    screen.stroke()
+    screen.level(15)
   end
+
   -- plot starts in the queue
   for note, data in pairs(self.record_queue) do
     local note_start_beat = data.beat_start % self.total_beats
     local y_pos = util.round(util.linlin(16, 90, 64, 10, note))
     local start_x = util.round(128 * note_start_beat / self.total_beats)
-    screen.move(start_x, y_pos)
-    screen.text("o")
+    screen.rect(start_x, y_pos - 2, 3, 3)
+    screen.fill()
   end
+  screen.blend_mode(0)
 
   if not shift then
     if params:get("looper_" .. self.id .. "_recording_enable") == 2 then
