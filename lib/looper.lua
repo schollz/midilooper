@@ -234,9 +234,11 @@ function Looper:redraw(shift)
 
   local x = util.round(128 * (clock.get_beats() % self.total_beats) / self.total_beats)
   -- draw a line for the current beat:
-  screen.level(3)
-  screen.rect(x, 8, 1, 48)
-  screen.fill()
+  if (self.total_beats > 1) then
+    screen.level(1)
+    screen.rect(x, 8, 1, 48)
+    screen.fill()
+  end
   -- -- draw a dot
   -- screen.level(3)
   -- screen.rect(0, 8, x, 2)
