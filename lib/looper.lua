@@ -236,7 +236,13 @@ function Looper:redraw(shift)
     screen.fill()
     screen.level(1)
     screen.move(start_x, y_pos)
-    screen.line(end_x, y_pos)
+    if end_x > start_x then
+      screen.line(end_x, y_pos)
+    else
+      screen.line(128, y_pos)
+      screen.move(0, y_pos)
+      screen.line(end_x, y_pos)
+    end
     screen.stroke()
     screen.level(15)
   end
