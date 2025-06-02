@@ -1,8 +1,27 @@
--- midi looper
+-- moooooo v0.1.0
+--
+--
+-- llllllll.co/t/moooooo
+--
+--
+--
+--    ▼ instructions below ▼
+--
+-- E1: select pattern
+-- E2: select parameter
+-- E3: change parameter
+-- K3: toggle play
+-- K1+K3: toggle play all
+-- top left going down:
+-- pattern id
+-- length
+-- volume
+-- duration
+-- wet
 looper_ = include("lib/looper")
 
 global_shift = false
-global_num_loops = 4
+global_num_loops = 6
 global_loops = {}
 
 function init()
