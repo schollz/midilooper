@@ -7,17 +7,14 @@
 --
 --    ▼ instructions below ▼
 --
--- E1: select pattern
--- E2: select parameter
--- E3: change parameter
+-- E1: change selected loop
+-- E2:
+-- E3: 
+-- K2: toggle record
 -- K3: toggle play
--- K1+K3: toggle play all
--- top left going down:
--- pattern id
--- length
--- volume
--- duration
--- wet
+-- K1+K2: erase 
+-- K1+K3: quantize 
+-- 
 looper_ = include("lib/looper")
 
 global_shift = false

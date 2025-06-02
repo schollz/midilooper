@@ -23,34 +23,29 @@ end
 function Looper:record_note_on(ch, note, velocity)
   if params:get("looper_" .. self.id .. "_recording_enable") == 2 then
     -- add to the record queue
-    print("record_note_on", ch, note, velocity)
     self.record_queue[note] = {ch=ch, note=note, velocity=velocity, beat_start=clock.get_beats()}
-    self.beat_last_recorded = clock.get_beats()
+    self.beat_last_recorded = self.record_queue[note].beat_start
     -- find any notes in the loop that are within 0.25 beats of the current beat:
 
-    local current_beat_mod = clock.get_beats() % self.total_beats
+    local current_beat_mod = self.record_queue[note].beat_start % self.total_beats
     local notes_to_delete = {}
     for i = 1, #self.loop do
-      local note_data = self.loop[i]  
+      local note_data = self.loop[i]
       local note_start_beat = note_data.beat_start % self.total_beats
-      if math.abs(note_start_beat - current_beat_mod) < 0.25 and note_data.times_played > 1 then 
+      if math.abs(note_start_beat - current_beat_mod) < params:get("looper_" .. self.id .. "_beat_tol") and
+          note_data.times_played > 0 then
         -- remove this note from the loop
-        print("removing note", note_data.note, "from loop, beat_start:", note_data.beat_start, "current beat:",
-              clock.get_beats())
         table.insert(notes_to_delete, i)
       end
     end
-
-  if #notes_to_delete>0 then 
-    local new_loop = {}
-    for i = 1, #self.loop do
-      if not self:table_contains(notes_to_delete, i) then table.insert(new_loop, self.loop[i]) end
+    if #notes_to_delete > 0 then
+      local new_loop = {}
+      for i = 1, #self.loop do
+        if not self:table_contains(notes_to_delete, i) then table.insert(new_loop, self.loop[i]) end
+      end
+      self.loop = new_loop
     end
-    self.loop = new_loop
   end
-
-  end
-
 end
 
 function Looper:record_note_off(ch, note)
@@ -64,7 +59,7 @@ function Looper:record_note_off(ch, note)
         velocity=self.record_queue[note].velocity,
         beat_start=self.record_queue[note].beat_start,
         beat_end=clock.get_beats(),
-        times_played=0,
+        times_played=0
       })
       -- remove the note from the record queue
       self.record_queue[note] = nil
@@ -120,7 +115,8 @@ function Looper:emit()
     local note_end_beat = note_data.beat_end % self.total_beats
     -- check if a note starting
     if self:beat_in_range(note_start_beat, beat_before, beat_after, self.total_beats) then
-      if next(self.record_queue) ~= nil or self.beat_current - self.beat_last_recorded < 0.25 then
+      if next(self.record_queue) ~= nil or self.beat_current - self.beat_last_recorded <
+          params:get("looper_" .. self.id .. "_beat_tol") / 2 then
         -- erase this  note
         table.insert(notes_to_erase, i)
         print("queuing note to remove: ", note_data.note, "from loop")
@@ -169,9 +165,9 @@ function Looper:init()
   self.beat_last_recorded = clock.get_beats()
   self.playing_notes = {}
   self.do_quantize = false
-  params:add_group("looper_" .. self.id, "Looper " .. self.id, 7)
+  params:add_group("looper_" .. self.id, "Looper " .. self.id, 8)
   -- midi channelt to record on 
-  params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, 4)
+  params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, self.id == 1 and 1 or 16)
   params:set_action("looper_" .. self.id .. "_beats", function(value)
     self.total_beats = value * params:get("looper_" .. self.id .. "_bars")
   end)
@@ -181,12 +177,16 @@ function Looper:init()
   end)
   params:add_option("looper_" .. self.id .. "_midi_device", "MIDI Out", self.midi_names, 2)
   params:add_number("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", 1, 16, 1)
-  params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"}, 1)
+  params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"},
+                    self.id == 1 and 2 or 1)
   params:set_action("looper_" .. self.id .. "_recording_enable", function(value)
     self.record_queue = {}
   end)
   params:add_option("looper_" .. self.id .. "_playback_enable", "Playback", {"Disabled", "Enabled"}, 1)
   params:add_option("looper_" .. self.id .. "_quantize", "Quantization", {"1/32", "1/16", "1/8", "1/4"}, 1)
+  params:add_control("looper_" .. self.id .. "_beat_tol", "Beat tolerance",
+                     controlspec.new(0.01, 2.0, 'lin', 0.0125, 0.5, 'beats', 0.0125 / (2.0 - 0.01)))
+
 end
 
 function Looper:key(k, v, shift)
