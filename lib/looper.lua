@@ -26,7 +26,31 @@ function Looper:record_note_on(ch, note, velocity)
     print("record_note_on", ch, note, velocity)
     self.record_queue[note] = {ch=ch, note=note, velocity=velocity, beat_start=clock.get_beats()}
     self.beat_last_recorded = clock.get_beats()
+    -- find any notes in the loop that are within 0.25 beats of the current beat:
+
+    local current_beat_mod = clock.get_beats() % self.total_beats
+    local notes_to_delete = {}
+    for i = 1, #self.loop do
+      local note_data = self.loop[i]  
+      local note_start_beat = note_data.beat_start % self.total_beats
+      if math.abs(note_start_beat - current_beat_mod) < 0.25 and note_data.times_played > 1 then 
+        -- remove this note from the loop
+        print("removing note", note_data.note, "from loop, beat_start:", note_data.beat_start, "current beat:",
+              clock.get_beats())
+        table.insert(notes_to_delete, i)
+      end
+    end
+
+  if #notes_to_delete>0 then 
+    local new_loop = {}
+    for i = 1, #self.loop do
+      if not self:table_contains(notes_to_delete, i) then table.insert(new_loop, self.loop[i]) end
+    end
+    self.loop = new_loop
   end
+
+  end
+
 end
 
 function Looper:record_note_off(ch, note)
@@ -39,7 +63,8 @@ function Looper:record_note_off(ch, note)
         note=self.record_queue[note].note,
         velocity=self.record_queue[note].velocity,
         beat_start=self.record_queue[note].beat_start,
-        beat_end=clock.get_beats()
+        beat_end=clock.get_beats(),
+        times_played=0,
       })
       -- remove the note from the record queue
       self.record_queue[note] = nil
@@ -100,13 +125,14 @@ function Looper:emit()
         table.insert(notes_to_erase, i)
         print("queuing note to remove: ", note_data.note, "from loop")
       else
-        print("emit note_on", note_data.ch, note_data.note, note_data.velocity)
+        -- print("emit note_on", note_data.ch, note_data.note, note_data.velocity)
         self:note_on(note_data.note, note_data.velocity)
+        self.loop[i].times_played = self.loop[i].times_played + 1
       end
     end
     -- check if a note is ending
     if self:beat_in_range(note_end_beat, beat_before, beat_after, self.total_beats) then
-      print("emit note_off", note_data.ch, note_data.note)
+      -- print("emit note_off", note_data.ch, note_data.note)
       self:note_off(note_data.note)
     end
   end
