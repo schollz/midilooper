@@ -81,6 +81,7 @@ function enc(k, d)
       global_loops[params:get("selected_loop")]:enc(k, d)
     end
   else
+    if k == 1 then params:delta("selected_loop", d) end
   end
 end
 

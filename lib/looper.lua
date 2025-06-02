@@ -21,27 +21,29 @@ function Looper:queue_clean()
 end
 
 function Looper:record_note_on(ch, note, velocity)
-  if params:get("looper_" .. self.id .. "_recording_enable") == 1 then return end
-  -- add to the record queue
-  print("record_note_on", ch, note, velocity)
-  self.record_queue[note] = {ch=ch, note=note, velocity=velocity, beat_start=clock.get_beats()}
+  if params:get("looper_" .. self.id .. "_recording_enable") == 2 then
+    -- add to the record queue
+    print("record_note_on", ch, note, velocity)
+    self.record_queue[note] = {ch=ch, note=note, velocity=velocity, beat_start=clock.get_beats()}
+    self.beat_last_recorded = clock.get_beats()
+  end
 end
 
 function Looper:record_note_off(ch, note)
-  if params:get("looper_" .. self.id .. "_recording_enable") == 1 then return end
-  -- find the note in the record queue and add it to the loop
-  if self.record_queue[note] then
-    print("recording note off for", note, "at", clock.get_beats())
-    table.insert(self.loop, {
-      ch=self.record_queue[note].ch,
-      note=self.record_queue[note].note,
-      velocity=self.record_queue[note].velocity,
-      beat_start=self.record_queue[note].beat_start,
-      beat_end=clock.get_beats()
-    })
-    -- remove the note from the record queue
-    self.record_queue[note] = nil
-    self.beat_last_recorded = clock.get_beats()
+  if params:get("looper_" .. self.id .. "_recording_enable") == 2 then
+    -- find the note in the record queue and add it to the loop
+    if self.record_queue[note] then
+      print("recording note off for", note, "at", clock.get_beats())
+      table.insert(self.loop, {
+        ch=self.record_queue[note].ch,
+        note=self.record_queue[note].note,
+        velocity=self.record_queue[note].velocity,
+        beat_start=self.record_queue[note].beat_start,
+        beat_end=clock.get_beats()
+      })
+      -- remove the note from the record queue
+      self.record_queue[note] = nil
+    end
   end
 end
 
@@ -154,6 +156,9 @@ function Looper:init()
   params:add_option("looper_" .. self.id .. "_midi_device", "MIDI Out", self.midi_names, 2)
   params:add_number("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", 1, 16, 1)
   params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"}, 1)
+  params:set_action("looper_" .. self.id .. "_recording_enable", function(value)
+    self.record_queue = {}
+  end)
   params:add_option("looper_" .. self.id .. "_playback_enable", "Playback", {"Disabled", "Enabled"}, 1)
   params:add_option("looper_" .. self.id .. "_quantize", "Quantization", {"1/32", "1/16", "1/8", "1/4"}, 1)
 end
@@ -202,13 +207,17 @@ function Looper:redraw(shift)
                             self.total_beats))
 
   local x = util.round(128 * (clock.get_beats() % self.total_beats) / self.total_beats)
-  -- draw a dot
+  -- draw a line for the current beat:
   screen.level(3)
-  screen.rect(0, 8, x, 2)
+  screen.rect(x, 8, 1, 48)
   screen.fill()
-  screen.move(x, 11)
-  screen.text("o")
-  screen.level(15)
+  -- -- draw a dot
+  -- screen.level(3)
+  -- screen.rect(0, 8, x, 2)
+  -- screen.fill()
+  -- screen.move(x, 11)
+  -- screen.text("o")
+  -- screen.level(15)
 
   screen.move(x, 55)
   -- plot recorded beats
@@ -220,6 +229,7 @@ function Looper:redraw(shift)
     local note_end_beat = note_data.beat_end % self.total_beats
     local start_x = util.round(128 * note_start_beat / self.total_beats)
     local end_x = util.round(128 * note_end_beat / self.total_beats)
+    screen.level(5)
     screen.rect(start_x, y_pos - 2, 3, 3)
     screen.fill()
     screen.rect(end_x, y_pos - 1, 1, 1)
