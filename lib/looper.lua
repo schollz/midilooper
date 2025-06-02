@@ -74,30 +74,36 @@ function Looper:note_off(note)
   self.playing_notes[note] = nil
 end
 
+function Looper:beat_in_range(beat, beat_before, beat_after, total_beats)
+  if beat_after < beat_before then
+    return (beat >= beat_before and beat <= total_beats) or (beat >= 0 and beat <= beat_after)
+  else
+    return beat >= beat_before and beat <= beat_after
+  end
+end
+
 function Looper:emit()
   self.beat_current = clock.get_beats()
-  local current_beat = self.beat_current % self.total_beats
-  local last_beat = self.beat_last % self.total_beats
-  if current_beat < last_beat then current_beat = current_beat + self.total_beats end
+  local beat_after = self.beat_current % self.total_beats
+  local beat_before = self.beat_last % self.total_beats
   local notes_to_erase = {}
   for i = 1, #self.loop do
     local note_data = self.loop[i]
     local note_start_beat = note_data.beat_start % self.total_beats
     local note_end_beat = note_data.beat_end % self.total_beats
-    if note_start_beat >= last_beat and note_start_beat <= current_beat then
-      -- check if anything is in the queue
+    -- check if a note starting
+    if self:beat_in_range(note_start_beat, beat_before, beat_after, self.total_beats) then
       if next(self.record_queue) ~= nil or self.beat_current - self.beat_last_recorded < 0.25 then
         -- erase this  note
         table.insert(notes_to_erase, i)
         print("queuing note to remove: ", note_data.note, "from loop")
       else
-        -- note is starting in this beat
         print("emit note_on", note_data.ch, note_data.note, note_data.velocity)
         self:note_on(note_data.note, note_data.velocity)
       end
     end
-    if note_end_beat >= last_beat and note_end_beat <= current_beat then
-      -- note is ending in this beat
+    -- check if a note is ending
+    if self:beat_in_range(note_end_beat, beat_before, beat_after, self.total_beats) then
       print("emit note_off", note_data.ch, note_data.note)
       self:note_off(note_data.note)
     end
