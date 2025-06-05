@@ -104,8 +104,14 @@ function Looper:note_on(note, velocity)
         return
     end
 
-    self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, params:get(
-        "looper_" .. self.id .. "_midi_channel_out"))
+    local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
+    if ch < 17 then
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, ch)
+    else
+        for ch = 1, 16 do
+            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, ch)
+        end
+    end
     self.playing_notes[note] = true
 end
 
@@ -113,8 +119,14 @@ function Looper:note_off(note)
     if params:get("looper_" .. self.id .. "_midi_device") == 1 then
         return
     end
-    self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, params:get(
-        "looper_" .. self.id .. "_midi_channel_out"))
+    local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
+    if ch < 17 then
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, ch)
+    else
+        for ch = 1, 16 do
+            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, ch)
+        end
+    end
     self.playing_notes[note] = nil
 end
 
