@@ -60,6 +60,11 @@ function Looper:record_note_on(ch, note, velocity)
             self.loop = new_loop
         end
     end
+    if params:get("looper_" .. self.id .. "_passthrough") == 2 and params:get("looper_midi_in_device") ~=
+        params:get("looper_" .. self.id .. "_midi_device") then
+        -- passthrough enabled and midi output device is different from input device
+        self:note_on(note, velocity, true)
+    end
 end
 
 function Looper:record_note_off(ch, note)
@@ -78,6 +83,11 @@ function Looper:record_note_off(ch, note)
             -- remove the note from the record queue
             self.record_queue[note] = nil
         end
+    end
+    if params:get("looper_" .. self.id .. "_passthrough") == 2 and params:get("looper_midi_in_device") ~=
+        params:get("looper_" .. self.id .. "_midi_device") then
+        -- passthrough enabled and midi output device is different from input device
+        self:note_off(note, true)
     end
 end
 
@@ -99,8 +109,8 @@ function Looper:table_contains(tbl, i)
     return false
 end
 
-function Looper:note_on(note, velocity)
-    if params:get("looper_" .. self.id .. "_playback_enable") == 1 then
+function Looper:note_on(note, velocity, passthrough)
+    if params:get("looper_" .. self.id .. "_playback_enable") ~= 2 and not passthrough then
         return
     end
 
@@ -115,10 +125,11 @@ function Looper:note_on(note, velocity)
     self.playing_notes[note] = true
 end
 
-function Looper:note_off(note)
-    if params:get("looper_" .. self.id .. "_midi_device") == 1 then
+function Looper:note_off(note, passthrough)
+    if params:get("looper_" .. self.id .. "_midi_device") == 1 and not passthrough then
         return
     end
+
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
     if ch < 17 then
         self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, ch)
@@ -201,7 +212,7 @@ function Looper:init()
     self.beat_last_recorded = clock.get_beats()
     self.playing_notes = {}
     self.do_quantize = false
-    params:add_group("looper_" .. self.id, "Looper " .. self.id, 8)
+    params:add_group("looper_" .. self.id, "Looper " .. self.id, 9)
     -- midi channelt to record on 
     params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, self.id == 1 and 1 or 16)
     params:set_action("looper_" .. self.id .. "_beats", function(value)
@@ -227,6 +238,7 @@ function Looper:init()
     params:add_option("looper_" .. self.id .. "_quantize", "Quantization", {"1/32", "1/16", "1/8", "1/4"}, 1)
     params:add_control("looper_" .. self.id .. "_beat_tol", "Beat tolerance",
         controlspec.new(0.01, 2.0, 'lin', 0.0125, 0.5, 'beats', 0.0125 / (2.0 - 0.01)))
+    params:add_option("looper_" .. self.id .. "_passthrough", "Passthrough", {"Disabled", "Enabled"}, 2)
 
 end
 
