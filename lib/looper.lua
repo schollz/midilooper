@@ -91,11 +91,16 @@ function Looper:record_note_off(ch, note)
     end
 end
 
-function Looper:clear_loop()
+function Looper:stop_playing_notes()
     -- turn off every note in playing_notes 
     for note, _ in pairs(self.playing_notes) do
         self:note_off(note)
     end
+    self.playing_notes = {}
+end
+
+function Looper:clear_loop()
+    self:stop_playing_notes()
     self.loop = {}
     self.record_queue = {}
 end
@@ -113,6 +118,8 @@ function Looper:note_on(note, velocity, passthrough)
     if params:get("looper_" .. self.id .. "_playback_enable") ~= 2 and not passthrough then
         return
     end
+    -- augment note 
+    note = note + params:get("looper_" .. self.id .. "_midi_augment")
 
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
     if ch < 17 then
@@ -129,6 +136,8 @@ function Looper:note_off(note, passthrough)
     if params:get("looper_" .. self.id .. "_midi_device") == 1 and not passthrough then
         return
     end
+    -- augment note 
+    note = note + params:get("looper_" .. self.id .. "_midi_augment")
 
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
     if ch < 17 then
@@ -212,7 +221,7 @@ function Looper:init()
     self.beat_last_recorded = clock.get_beats()
     self.playing_notes = {}
     self.do_quantize = false
-    params:add_group("looper_" .. self.id, "Looper " .. self.id, 9)
+    params:add_group("looper_" .. self.id, "Looper " .. self.id, 10)
     -- midi channelt to record on 
     params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, self.id == 1 and 1 or 16)
     params:set_action("looper_" .. self.id .. "_beats", function(value)
@@ -229,6 +238,10 @@ function Looper:init()
     end
     table.insert(midi_out_options, "All")
     params:add_option("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", midi_out_options, 1)
+    params:add_number("looper_" .. self.id .. "_midi_augment", "MIDI Note augment", -24, 24, 0)
+    params:set_action("looper_" .. self.id .. "_midi_augment", function(value)
+        self:stop_playing_notes()
+    end)
     params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"},
         self.id == 1 and 2 or 1)
     params:set_action("looper_" .. self.id .. "_recording_enable", function(value)
