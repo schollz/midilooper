@@ -200,7 +200,12 @@ function Looper:init()
         self.total_beats = value * params:get("looper_" .. self.id .. "_beats")
     end)
     params:add_option("looper_" .. self.id .. "_midi_device", "MIDI Out", self.midi_names, 2)
-    params:add_number("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", 1, 16, 1)
+    local midi_out_options = {}
+    for i = 1, 16 do
+        table.insert(midi_out_options, "" .. i)
+    end
+    table.insert(midi_out_options, "All")
+    params:add_option("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", midi_out_options, 1)
     params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"},
         self.id == 1 and 2 or 1)
     params:set_action("looper_" .. self.id .. "_recording_enable", function(value)
