@@ -27,9 +27,13 @@ function init()
     local midi_names = {}
     local midi_device = {}
     table.insert(midi_names, "None")
-    for i = 1, #midi.vports do
-        table.insert(midi_names, midi.vports[i].name)
-        midi_device[i] = midi.connect(i)
+    for i = 1, #midi.devices do
+        local name = midi.devices[i].name
+        -- trim whitespace from the name
+        name = name:gsub("^%s*(.-)%s*$", "%1")
+        table.insert(midi_names, name)
+        print("Found MIDI device: " .. name)
+        table.insert(midi_device, midi.connect(i))
     end
 
     -- global parameters
@@ -55,11 +59,13 @@ function init()
             midi_device = midi_device
         })
     end
+    params:default()
     params:bang()
 
     -- connect to all midi devices
-    for i = 1, #midi_device do
-        midi_device[i].event = function(data)
+    for i, md in ipairs(midi_device) do
+        print("Connecting to MIDI device: " .. md.name)
+        md.event = function(data)
             if i ~= params:get("looper_midi_in_device") - 1 then
                 do
                     return
@@ -96,6 +102,19 @@ function init()
             end
         end
     end)
+
+    -- -- go through each device
+    -- for i = 1, #midi_device do
+    --     clock.run(function()
+    --         for ch = 1, 4 do
+    --             for note = 1, 127 do
+    --                 -- send a note off to each device
+    --                 midi_device[i]:note_off(note, 0, ch)
+    --             end
+    --         end
+    --         print("Closed all notes on device " .. midi_device[i].name)
+    --     end)
+    -- end
 end
 
 function key(k, v)

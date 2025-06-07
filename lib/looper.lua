@@ -122,6 +122,7 @@ function Looper:table_contains(tbl, i)
 end
 
 function Looper:note_on(note, velocity, passthrough)
+    print("note_on", note, "velocity", velocity, "passthrough", passthrough)
     if params:get("looper_" .. self.id .. "_playback_enable") ~= 2 and not passthrough then
         return
     end
@@ -137,7 +138,7 @@ function Looper:note_on(note, velocity, passthrough)
         print("augmented note", augmented_note, "for channel", ch)
         self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(augmented_note, velocity, ch)
     else
-        -- "Befaco" mode - use note stealing algorithm
+        -- "special" mode - use note stealing algorithm
         local assigned_channel = self:assign_channel_for_note(note) -- Use original note for tracking
         local augmented_note = note + params:get("midi_ch_augment_" .. assigned_channel)
         self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(augmented_note, velocity,
@@ -161,7 +162,7 @@ function Looper:note_off(note, passthrough)
         local augmented_note = note + params:get("midi_ch_augment_" .. ch)
         self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(augmented_note, 0, ch)
     else
-        -- "Befaco" mode - find which channel the note is on and turn it off
+        -- "special" mode - find which channel the note is on and turn it off
         local assigned_channel = self:find_channel_for_note(note) -- Find using original note
         if assigned_channel then
             print("stopping", note, "on channel", assigned_channel)
@@ -311,7 +312,7 @@ function Looper:init()
     for i = 1, 16 do
         table.insert(midi_out_options, "" .. i)
     end
-    table.insert(midi_out_options, "Befaco")
+    table.insert(midi_out_options, "special")
     params:add_option("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", midi_out_options,
         self.id == 1 and #midi_out_options or self.id - 1)
     params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"},
@@ -417,6 +418,13 @@ function Looper:redraw(shift)
         screen.stroke()
         screen.level(15)
     end
+
+    -- top right of screen output the output midi device and channel
+    screen.level(3)
+    screen.move(128, 64)
+    local midi_device = params:string("looper_" .. self.id .. "_midi_device")
+    local midi_channel = params:string("looper_" .. self.id .. "_midi_channel_out")
+    screen.text_right(midi_device .. " ch" .. midi_channel)
 
     -- plot starts in the queue
     for note, data in pairs(self.record_queue) do
