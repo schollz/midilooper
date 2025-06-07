@@ -125,55 +125,68 @@ function Looper:note_on(note, velocity, passthrough)
     if params:get("looper_" .. self.id .. "_playback_enable") ~= 2 and not passthrough then
         return
     end
-    -- augment note 
-    note = note + params:get("looper_" .. self.id .. "_midi_augment")
+    if params:get("looper_" .. self.id .. "_midi_device") == 1 then
+        -- no midi device selected, do nothing
+        return
+    end
 
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
     if ch < 17 then
-        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, ch)
+        print("note_on", note, "on channel", ch)
+        local augmented_note = note + params:get("midi_ch_augment_" .. ch)
+        print("augmented note", augmented_note, "for channel", ch)
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(augmented_note, velocity, ch)
     else
         -- "Befaco" mode - use note stealing algorithm
-        local assigned_channel = self:assign_channel_for_note(note)
-        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity,
+        local assigned_channel = self:assign_channel_for_note(note) -- Use original note for tracking
+        local augmented_note = note + params:get("midi_ch_augment_" .. assigned_channel)
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(augmented_note, velocity,
             assigned_channel)
+        print("playing", augmented_note, "on channel", assigned_channel)
     end
-    self.playing_notes[note] = true
+    self.playing_notes[note] = true -- Store original note
 end
 
 function Looper:note_off(note, passthrough)
     if params:get("looper_" .. self.id .. "_midi_device") == 1 and not passthrough then
         return
     end
-    -- augment note 
-    note = note + params:get("looper_" .. self.id .. "_midi_augment")
+    if params:get("looper_" .. self.id .. "_midi_device") == 1 then
+        -- no midi device selected, do nothing
+        return
+    end
 
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
     if ch < 17 then
-        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, ch)
+        local augmented_note = note + params:get("midi_ch_augment_" .. ch)
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(augmented_note, 0, ch)
     else
         -- "Befaco" mode - find which channel the note is on and turn it off
-        local assigned_channel = self:find_channel_for_note(note)
+        local assigned_channel = self:find_channel_for_note(note) -- Find using original note
         if assigned_channel then
-            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, assigned_channel)
-            self:remove_note_from_channel(note, assigned_channel)
+            print("stopping", note, "on channel", assigned_channel)
+            local augmented_note = note + params:get("midi_ch_augment_" .. assigned_channel)
+            print("note_off", augmented_note, "on channel", assigned_channel)
+            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(augmented_note, 0,
+                assigned_channel)
+            self:remove_note_from_channel(note, assigned_channel) -- Remove using original note
         end
     end
-    self.playing_notes[note] = nil
+    self.playing_notes[note] = nil -- Remove original note
 end
 
--- Add these new helper functions:
 function Looper:assign_channel_for_note(note)
     -- Try channels 1, 2, 3 in order
     for ch = 1, 3 do
         if #self.channel_notes[ch] == 0 then
             -- Channel is empty, assign note here
-            table.insert(self.channel_notes[ch], note)
+            table.insert(self.channel_notes[ch], note) -- Store original note
             return ch
         end
     end
 
-    -- Befaco channels have notes, use channel 3 for overflow
-    table.insert(self.channel_notes[3], note)
+    -- All channels have notes, use channel 3 for overflow
+    table.insert(self.channel_notes[3], note) -- Store original note
     return 3
 end
 
@@ -275,7 +288,7 @@ function Looper:init()
     } -- track notes per channel
     self.next_channel = 1 -- for round-robin assignment
 
-    params:add_group("looper_" .. self.id, "Looper " .. self.id, 10)
+    params:add_group("looper_" .. self.id, "Looper " .. self.id, 9)
     -- midi channelt to record on 
     params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, self.id == 1 and 1 or 16)
     params:set_action("looper_" .. self.id .. "_beats", function(value)
@@ -285,19 +298,24 @@ function Looper:init()
     params:set_action("looper_" .. self.id .. "_bars", function(value)
         self.total_beats = value * params:get("looper_" .. self.id .. "_beats")
     end)
-    params:add_option("looper_" .. self.id .. "_midi_device", "MIDI Out", self.midi_names, 2)
+    local usb_midi = 1
+    for i, name in ipairs(self.midi_names) do
+        local trimmed_name = string.lower((name:gsub("^%s*(.-)%s*$", "%1")))
+        print("midi device", i, name, trimmed_name == "usb midi")
+        if trimmed_name == "usb midi" then
+            usb_midi = i
+        end
+    end
+    params:add_option("looper_" .. self.id .. "_midi_device", "MIDI Out", self.midi_names, usb_midi or 1)
     local midi_out_options = {}
     for i = 1, 16 do
         table.insert(midi_out_options, "" .. i)
     end
     table.insert(midi_out_options, "Befaco")
-    params:add_option("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", midi_out_options, 1)
-    params:add_number("looper_" .. self.id .. "_midi_augment", "MIDI Note augment", -24, 24, 0)
-    params:set_action("looper_" .. self.id .. "_midi_augment", function(value)
-        self:stop_playing_notes()
-    end)
+    params:add_option("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", midi_out_options,
+        self.id == 1 and #midi_out_options or self.id - 1)
     params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"},
-        self.id == 1 and 2 or 1)
+        self.id == 1 and 1 or 1)
     params:set_action("looper_" .. self.id .. "_recording_enable", function(value)
         self.record_queue = {}
     end)

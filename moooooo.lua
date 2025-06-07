@@ -36,6 +36,17 @@ function init()
     params:add_number("selected_loop", "Selected Loop", 1, global_num_loops, 1)
     params:add_option("looper_midi_in_device", "MIDI In", midi_names, 2)
     params:add_number("looper_midi_in_channel", "MIDI In Channel", 1, 16, 1)
+    -- midi augmentation 
+    params:add_group("MIDI Out Augmentation", 16)
+    for i = 1, 16 do
+        local aug_default = 0
+        if i == 1 then
+            aug_default = -24 -- default to octave up for channel 1
+        elseif i == 2 then
+            aug_default = -12 -- default to octave down for channel 2
+        end
+        params:add_number("midi_ch_augment_" .. i, "Ch " .. i .. " augment", -64, 64, aug_default)
+    end
 
     for i = 1, global_num_loops do
         global_loops[i] = looper_:new({
