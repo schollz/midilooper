@@ -97,6 +97,13 @@ function Looper:stop_playing_notes()
         self:note_off(note)
     end
     self.playing_notes = {}
+    -- Clear channel tracking
+    self.channel_notes = {
+        [1] = {},
+        [2] = {},
+        [3] = {}
+    }
+    self.next_channel = 1
 end
 
 function Looper:clear_loop()
@@ -125,9 +132,10 @@ function Looper:note_on(note, velocity, passthrough)
     if ch < 17 then
         self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, ch)
     else
-        for ch = 1, 16 do
-            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity, ch)
-        end
+        -- "Befaco" mode - use note stealing algorithm
+        local assigned_channel = self:assign_channel_for_note(note)
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(note, velocity,
+            assigned_channel)
     end
     self.playing_notes[note] = true
 end
@@ -143,11 +151,50 @@ function Looper:note_off(note, passthrough)
     if ch < 17 then
         self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, ch)
     else
-        for ch = 1, 16 do
-            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, ch)
+        -- "Befaco" mode - find which channel the note is on and turn it off
+        local assigned_channel = self:find_channel_for_note(note)
+        if assigned_channel then
+            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(note, 0, assigned_channel)
+            self:remove_note_from_channel(note, assigned_channel)
         end
     end
     self.playing_notes[note] = nil
+end
+
+-- Add these new helper functions:
+function Looper:assign_channel_for_note(note)
+    -- Try channels 1, 2, 3 in order
+    for ch = 1, 3 do
+        if #self.channel_notes[ch] == 0 then
+            -- Channel is empty, assign note here
+            table.insert(self.channel_notes[ch], note)
+            return ch
+        end
+    end
+
+    -- Befaco channels have notes, use channel 3 for overflow
+    table.insert(self.channel_notes[3], note)
+    return 3
+end
+
+function Looper:find_channel_for_note(note)
+    for ch = 1, 3 do
+        for i, stored_note in ipairs(self.channel_notes[ch]) do
+            if stored_note == note then
+                return ch
+            end
+        end
+    end
+    return nil
+end
+
+function Looper:remove_note_from_channel(note, channel)
+    for i, stored_note in ipairs(self.channel_notes[channel]) do
+        if stored_note == note then
+            table.remove(self.channel_notes[channel], i)
+            break
+        end
+    end
 end
 
 function Looper:beat_in_range(beat, beat_before, beat_after, total_beats)
@@ -221,6 +268,13 @@ function Looper:init()
     self.beat_last_recorded = clock.get_beats()
     self.playing_notes = {}
     self.do_quantize = false
+    self.channel_notes = {
+        [1] = {},
+        [2] = {},
+        [3] = {}
+    } -- track notes per channel
+    self.next_channel = 1 -- for round-robin assignment
+
     params:add_group("looper_" .. self.id, "Looper " .. self.id, 10)
     -- midi channelt to record on 
     params:add_number("looper_" .. self.id .. "_beats", "Beats", 1, 64, self.id == 1 and 1 or 16)
@@ -236,7 +290,7 @@ function Looper:init()
     for i = 1, 16 do
         table.insert(midi_out_options, "" .. i)
     end
-    table.insert(midi_out_options, "All")
+    table.insert(midi_out_options, "Befaco")
     params:add_option("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", midi_out_options, 1)
     params:add_number("looper_" .. self.id .. "_midi_augment", "MIDI Note augment", -24, 24, 0)
     params:set_action("looper_" .. self.id .. "_midi_augment", function(value)
