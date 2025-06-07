@@ -103,18 +103,19 @@ function init()
         end
     end)
 
-    -- -- go through each device
-    -- for i = 1, #midi_device do
-    --     clock.run(function()
-    --         for ch = 1, 4 do
-    --             for note = 1, 127 do
-    --                 -- send a note off to each device
-    --                 midi_device[i]:note_off(note, 0, ch)
-    --             end
-    --         end
-    --         print("Closed all notes on device " .. midi_device[i].name)
-    --     end)
-    -- end
+    -- go through each device
+    for i = 1, #midi_device do
+        clock.run(function()
+            for ch = 1, 4 do
+                for note = 1, 127 do
+                    -- send a note off to each device
+                    midi_device[i]:note_off(note, 0, ch)
+                    clock.sleep(0.01) -- small delay to ensure all notes are sent
+                end
+            end
+            print("Closed all notes on device " .. midi_device[i].name)
+        end)
+    end
 end
 
 function key(k, v)

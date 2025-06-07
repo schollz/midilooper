@@ -316,11 +316,12 @@ function Looper:init()
     params:add_option("looper_" .. self.id .. "_midi_channel_out", "MIDI Out Channel", midi_out_options,
         self.id == 1 and #midi_out_options or self.id - 1)
     params:add_option("looper_" .. self.id .. "_recording_enable", "Recording", {"Disabled", "Enabled"},
-        self.id == 1 and 1 or 1)
+        self.id > 1 and 2 or 1)
     params:set_action("looper_" .. self.id .. "_recording_enable", function(value)
         self.record_queue = {}
     end)
-    params:add_option("looper_" .. self.id .. "_playback_enable", "Playback", {"Disabled", "Enabled"}, 1)
+    params:add_option("looper_" .. self.id .. "_playback_enable", "Playback", {"Disabled", "Enabled"},
+        self.id > 1 and 2 or 1)
     params:add_option("looper_" .. self.id .. "_quantize", "Quantization", {"1/32", "1/16", "1/8", "1/4"}, 1)
     params:add_control("looper_" .. self.id .. "_beat_tol", "Beat tolerance",
         controlspec.new(0.01, 2.0, 'lin', 0.0125, 0.5, 'beats', 0.0125 / (2.0 - 0.01)))
