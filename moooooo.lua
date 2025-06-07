@@ -122,15 +122,20 @@ function key(k, v)
     if k == 1 then
         global_shift = v == 1
     else
-        global_loops[params:get("selected_loop")]:key(k, v, global_shift)
-        -- elseif v == 1 then
-        --   local current_loop_new = params:get("selected_loop") + (k == 3 and 1 or -1)
-        --   if current_loop_new < 1 then
-        --     current_loop_new = global_num_loops
-        --   elseif current_loop_new > global_num_loops then
-        --     current_loop_new = 1
-        --   end
-        --   params:get("selected_loop") = current_loop_new
+        if not global_shift then
+            if v == 1 then
+                local current_loop_new = params:get("selected_loop") + (k == 3 and 1 or -1)
+                if current_loop_new < 1 then
+                    current_loop_new = global_num_loops
+                elseif current_loop_new > global_num_loops then
+                    current_loop_new = 1
+                end
+                params:set("selected_loop", current_loop_new)
+            end
+        else
+
+            global_loops[params:get("selected_loop")]:key(k, v, global_shift)
+        end
     end
 end
 
