@@ -459,6 +459,17 @@ function Looper:redraw(shift)
         local start_x = util.round(128 * note_start_beat / self.total_beats)
         screen.rect(start_x, y_pos - 2, 3, 3)
         screen.fill()
+        -- draw a line for the current beat:
+        screen.level(1)
+        screen.move(start_x, y_pos)
+        if self.beat_current % self.total_beats >= note_start_beat then
+            screen.line(util.round(128 * (self.beat_current % self.total_beats) / self.total_beats), y_pos)
+        else
+            screen.line(128, y_pos)
+            screen.move(0, y_pos)
+            screen.line(util.round(128 * (self.beat_current % self.total_beats) / self.total_beats), y_pos)
+        end
+        screen.stroke()
     end
     screen.blend_mode(0)
 
