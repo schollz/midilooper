@@ -8,12 +8,13 @@ A MIDI looper for the monome norns.
 ## Documentation
 
 - E1 selects loop
+- K2/K3 selects loop
 - E2
 - E3 
-- K2: toggle recording
-- K3: toggle playback
-- K1+K2: erase 
-- K1+K3: quantize
+- K1+K2: toggle recording
+- K1+E3: toggle playback
+- hold K1+K2: erase 
+- hold K1+E3: quantize
 
 
 ## Development

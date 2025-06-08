@@ -7,13 +7,14 @@
 --
 --    ▼ instructions below ▼
 --
--- E1: change selected loop
--- E2:
--- E3: 
--- K2: toggle record
--- K3: toggle play
--- K1+K2: erase 
--- K1+K3: quantize 
+-- E1 selects loop
+-- K2/K3 selects loop
+-- E2
+-- E3 
+-- K1+K2: toggle recording
+-- K1+E3: toggle playback
+-- hold K1+K2: erase 
+-- hold K1+E3: quantize
 -- 
 looper_ = include("lib/looper")
 
@@ -26,15 +27,19 @@ function init()
 
     local midi_names = {}
     local midi_device = {}
-    table.insert(midi_names, "None")
-    for i = 1, #midi.devices do
-        local name = midi.devices[i].name
-        -- trim whitespace from the name
-        name = name:gsub("^%s*(.-)%s*$", "%1")
-        table.insert(midi_names, name)
-        print("Found MIDI device: " .. name)
-        table.insert(midi_device, midi.connect(i))
+    for i = 1, #midi.vports do
+        if midi.vports[i] ~= nil and midi.vports[i].name ~= nil and midi.vports[i].name ~= "" then
+            local name = midi.vports[i].name
+            -- trim whitespace from the name
+            name = name:gsub("^%s*(.-)%s*$", "%1")
+            if name ~= "none" then
+                table.insert(midi_names, name)
+                table.insert(midi_device, midi.connect(i))
+                print("added midi device: " .. name)
+            end
+        end
     end
+    table.insert(midi_names, "None")
 
     -- global parameters
     params:add_number("selected_loop", "Selected Loop", 1, global_num_loops, 1)
@@ -43,13 +48,7 @@ function init()
     -- midi augmentation 
     params:add_group("MIDI Out Augmentation", 16)
     for i = 1, 16 do
-        local aug_default = 0
-        if i == 1 then
-            aug_default = -24 -- default to octave up for channel 1
-        elseif i == 2 then
-            aug_default = -12 -- default to octave down for channel 2
-        end
-        params:add_number("midi_ch_augment_" .. i, "Ch " .. i .. " augment", -64, 64, aug_default)
+        params:add_number("midi_ch_augment_" .. i, "Ch " .. i .. " augment", -64, 64, 0)
     end
 
     for i = 1, global_num_loops do
@@ -64,22 +63,26 @@ function init()
 
     -- connect to all midi devices
     for i, md in ipairs(midi_device) do
-        print("Connecting to MIDI device: " .. md.name)
+        print("Connecting to MIDI device: " .. i .. " " .. midi_names[i])
         md.event = function(data)
-            if i ~= params:get("looper_midi_in_device") - 1 then
+            local d = midi.to_msg(data)
+            if d.type == "clock" then
+                return
+            end
+            print(i .. " " .. midi_names[i] .. " type", d.type, "ch", d.ch, "indevice",
+                params:get("looper_midi_in_device"), "in channel", params:get("looper_midi_in_channel"))
+            if i ~= params:get("looper_midi_in_device") then
                 do
                     return
                 end
             end
-            local d = midi.to_msg(data)
             if d.ch ~= params:get("looper_midi_in_channel") then
                 do
                     return
                 end
             end
-            if d.type == "clock" then
-                return
-            elseif d.type == "note_on" then
+            if d.type == "note_on" then
+                print("note_on", d.note, d.vel)
                 global_loops[params:get("selected_loop")]:record_note_on(d.ch, d.note, d.vel)
             elseif d.type == "note_off" then
                 global_loops[params:get("selected_loop")]:record_note_off(d.ch, d.note)

@@ -124,24 +124,28 @@ end
 function Looper:note_on(note, velocity, passthrough)
     print("note_on", note, "velocity", velocity, "passthrough", passthrough)
     if params:get("looper_" .. self.id .. "_playback_enable") ~= 2 and not passthrough then
+        print("Looper:note_on - playback not enabled")
         return
     end
-    if params:get("looper_" .. self.id .. "_midi_device") == 1 then
+    if params:get("looper_" .. self.id .. "_midi_device") == #self.midi_names then
         -- no midi device selected, do nothing
+        print("Looper:note_on - no midi device selected")
         return
     end
+    print("Looper:note_on", note, "on device", params:get("looper_" .. self.id .. "_midi_device"), "channel",
+        params:get("looper_" .. self.id .. "_midi_channel_out"))
 
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
     if ch < 17 then
         print("note_on", note, "on channel", ch)
         local augmented_note = note + params:get("midi_ch_augment_" .. ch)
         print("augmented note", augmented_note, "for channel", ch)
-        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(augmented_note, velocity, ch)
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device")]:note_on(augmented_note, velocity, ch)
     else
         -- "special" mode - use note stealing algorithm
         local assigned_channel = self:assign_channel_for_note(note) -- Use original note for tracking
         local augmented_note = note + params:get("midi_ch_augment_" .. assigned_channel)
-        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_on(augmented_note, velocity,
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device")]:note_on(augmented_note, velocity,
             assigned_channel)
         print("playing", augmented_note, "on channel", assigned_channel)
     end
@@ -149,18 +153,14 @@ function Looper:note_on(note, velocity, passthrough)
 end
 
 function Looper:note_off(note, passthrough)
-    if params:get("looper_" .. self.id .. "_midi_device") == 1 and not passthrough then
-        return
-    end
-    if params:get("looper_" .. self.id .. "_midi_device") == 1 then
-        -- no midi device selected, do nothing
+    if params:get("looper_" .. self.id .. "_midi_device") == #self.midi_names or not passthrough then
         return
     end
 
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
     if ch < 17 then
         local augmented_note = note + params:get("midi_ch_augment_" .. ch)
-        self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(augmented_note, 0, ch)
+        self.midi_device[params:get("looper_" .. self.id .. "_midi_device")]:note_off(augmented_note, 0, ch)
     else
         -- "special" mode - find which channel the note is on and turn it off
         local assigned_channel = self:find_channel_for_note(note) -- Find using original note
@@ -168,7 +168,7 @@ function Looper:note_off(note, passthrough)
             print("stopping", note, "on channel", assigned_channel)
             local augmented_note = note + params:get("midi_ch_augment_" .. assigned_channel)
             print("note_off", augmented_note, "on channel", assigned_channel)
-            self.midi_device[params:get("looper_" .. self.id .. "_midi_device") - 1]:note_off(augmented_note, 0,
+            self.midi_device[params:get("looper_" .. self.id .. "_midi_device")]:note_off(augmented_note, 0,
                 assigned_channel)
             self:remove_note_from_channel(note, assigned_channel) -- Remove using original note
         end
@@ -447,7 +447,7 @@ function Looper:redraw(shift)
 
     -- top right of screen output the output midi device and channel
     screen.level(3)
-    screen.move(128, 64)
+    screen.move(128, 61)
     local midi_device = params:string("looper_" .. self.id .. "_midi_device")
     local midi_channel = params:string("looper_" .. self.id .. "_midi_channel_out")
     screen.text_right(midi_device .. " ch" .. midi_channel)
@@ -455,7 +455,7 @@ function Looper:redraw(shift)
     -- plot starts in the queue
     for note, data in pairs(self.record_queue) do
         local note_start_beat = data.beat_start % self.total_beats
-        local y_pos = util.round(util.linlin(16, 90, 64, 10, note))
+        local y_pos = util.round(util.linlin(16, 80, 64, 10, note))
         local start_x = util.round(128 * note_start_beat / self.total_beats)
         screen.rect(start_x, y_pos - 2, 3, 3)
         screen.fill()
