@@ -16,6 +16,10 @@ A MIDI looper for the monome norns.
 - hold K1+K2: erase 
 - hold K1+E3: quantize
 
+## Usage
+
+- 
+
 
 ## Development
 

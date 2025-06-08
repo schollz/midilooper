@@ -145,21 +145,26 @@ end
 function enc(k, d)
     if global_shift then
         if k == 1 then
-            -- change the global tempo
-            print(params:get("clock_tempo"), d)
-            params:delta("clock_tempo", d)
-        else
             global_loops[params:get("selected_loop")]:enc(k, d)
+        elseif k == 2 then
+            -- change input device
+            params:delta("looper_midi_in_device", d)
+        elseif k == 3 then
+            -- change output device
+            params:delta("looper_" .. params:get("selected_loop") .. "_midi_device", d)
         end
     else
-        if k == 1 then
-            params:delta("selected_loop", d)
-        end
+        params:delta("selected_loop", d)
     end
 end
 
 function redraw()
     screen.clear()
+
+    screen.level(global_shift and 15 or 3)
+    screen.move(64, 10)
+    screen.text_right("i: " .. params:string("looper_midi_in_device") .. " ch" ..
+                          params:string("looper_midi_in_channel"))
 
     global_loops[params:get("selected_loop")]:redraw(global_shift)
 

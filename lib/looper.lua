@@ -450,7 +450,7 @@ function Looper:redraw(shift)
     screen.move(128, 61)
     local midi_device = params:string("looper_" .. self.id .. "_midi_device")
     local midi_channel = params:string("looper_" .. self.id .. "_midi_channel_out")
-    screen.text_right(midi_device .. " ch" .. midi_channel)
+    screen.text_right("o: " .. midi_device .. " ch" .. midi_channel)
 
     -- plot starts in the queue
     for note, data in pairs(self.record_queue) do
