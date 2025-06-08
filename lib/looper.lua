@@ -292,7 +292,7 @@ function Looper:init()
         [2] = nil,
         [3] = nil
     }
-    self.key_hold_threshold = 1.5 -- 1 second
+    self.key_hold_threshold = 2.5 -- 1 second
     self.key_show_threshold = 1.0 -- 2 seconds before showing erase/quantize
 
     params:add_group("looper_" .. self.id, "Looper " .. self.id, 9)
@@ -347,6 +347,8 @@ end
 function Looper:key(k, v, shift)
     if not shift then
         -- Keys do nothing when not shifted
+        self.key_hold_start[2] = nil
+        self.key_hold_start[3] = nil
         return
     end
 
@@ -360,11 +362,7 @@ function Looper:key(k, v, shift)
             -- Key released
             if self.key_hold_start[2] then
                 local hold_time = clock.get_beats() - self.key_hold_start[2]
-                if hold_time >= (self.key_show_threshold + self.key_hold_threshold) then
-                    -- Held long enough - erase the loop
-                    print("erasing loop")
-                    self:clear_loop()
-                else
+                if hold_time < (self.key_show_threshold + self.key_hold_threshold) then
                     params:set("looper_" .. self.id .. "_recording_enable",
                         3 - params:get("looper_" .. self.id .. "_recording_enable"))
                 end
@@ -379,25 +377,27 @@ function Looper:key(k, v, shift)
             -- Key released
             if self.key_hold_start[3] then
                 local hold_time = clock.get_beats() - self.key_hold_start[3]
-                if hold_time >= (self.key_show_threshold + self.key_hold_threshold) then
-                    -- Held long enough - quantize
-                    print("quantizing loop")
-                    local quantas = {8, 4, 2, 1}
-                    local quanta = quantas[params:get("looper_" .. self.id .. "_quantize")]
-                    for i = 1, #self.loop do
-                        self.loop[i].beat_start = util.round(self.loop[i].beat_start * quanta) / quanta
-                        self.loop[i].beat_end = util.round(self.loop[i].beat_end * quanta) / quanta
-                        if self.loop[i].beat_end <= self.loop[i].beat_start then
-                            self.loop[i].beat_end = self.loop[i].beat_start + 1 / quanta
-                        end
-                    end
-                else
+                if hold_time < (self.key_show_threshold + self.key_hold_threshold) then
                     params:set("looper_" .. self.id .. "_playback_enable",
                         3 - params:get("looper_" .. self.id .. "_playback_enable"))
 
                 end
             end
             self.key_hold_start[3] = nil
+        end
+    end
+end
+
+function Looper:quantize()
+    -- Held long enough - quantize
+    print("quantizing loop")
+    local quantas = {8, 4, 2, 1}
+    local quanta = quantas[params:get("looper_" .. self.id .. "_quantize")]
+    for i = 1, #self.loop do
+        self.loop[i].beat_start = util.round(self.loop[i].beat_start * quanta) / quanta
+        self.loop[i].beat_end = util.round(self.loop[i].beat_end * quanta) / quanta
+        if self.loop[i].beat_end <= self.loop[i].beat_start then
+            self.loop[i].beat_end = self.loop[i].beat_start + 1 / quanta
         end
     end
 end
@@ -471,6 +471,12 @@ function Looper:redraw(shift)
         local hold_time = clock.get_beats() - self.key_hold_start[2]
         if hold_time >= self.key_show_threshold then
             show_erase = true
+            if hold_time >= (self.key_hold_threshold + self.key_show_threshold) then
+                -- Held long enough - erase the loop
+                print("erasing loop")
+                self:clear_loop()
+                show_erase = false
+            end
         end
     end
 
@@ -479,6 +485,11 @@ function Looper:redraw(shift)
         local hold_time = clock.get_beats() - self.key_hold_start[3]
         if hold_time >= self.key_show_threshold then
             show_quantize = true
+            if hold_time >= (self.key_hold_threshold + self.key_show_threshold) then
+                -- Held long enough - quantize the loop
+                self:quantize()
+                show_quantize = false
+            end
         end
     end
 
@@ -501,7 +512,7 @@ function Looper:redraw(shift)
     end
     -- Show normal rec button
     if params:get("looper_" .. self.id .. "_recording_enable") == 2 then
-        screen.level(15)
+        screen.level(shift and 15 or 5)
         screen.rect(x - 2, y - 7, 18, 11)
         screen.fill()
         screen.level(0)
@@ -535,7 +546,7 @@ function Looper:redraw(shift)
         screen.blend_mode(0)
     end
     if params:get("looper_" .. self.id .. "_playback_enable") == 2 then
-        screen.level(15)
+        screen.level(shift and 15 or 5)
         screen.rect(x - 2, y - 7, 21, 11)
         screen.fill()
         screen.level(0)
