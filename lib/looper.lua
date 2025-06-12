@@ -122,7 +122,7 @@ function Looper:table_contains(tbl, i)
 end
 
 function Looper:note_on(note, velocity, passthrough)
-    print("note_on", note, "velocity", velocity, "passthrough", passthrough)
+    print("Looper:note_on", note, "velocity", velocity, "passthrough", passthrough)
     if params:get("looper_" .. self.id .. "_playback_enable") ~= 2 and not passthrough then
         print("Looper:note_on - playback not enabled")
         return
@@ -132,7 +132,7 @@ function Looper:note_on(note, velocity, passthrough)
         print("Looper:note_on - no midi device selected")
         return
     end
-    print("Looper:note_on", note, "on device", params:get("looper_" .. self.id .. "_midi_device"), "channel",
+    print("Looper:note_on", note, "on device", params:string("looper_" .. self.id .. "_midi_device"), "channel",
         params:get("looper_" .. self.id .. "_midi_channel_out"))
 
     local ch = params:get("looper_" .. self.id .. "_midi_channel_out")
@@ -147,7 +147,7 @@ function Looper:note_on(note, velocity, passthrough)
         local augmented_note = note + params:get("midi_ch_augment_" .. assigned_channel)
         self.midi_device[params:get("looper_" .. self.id .. "_midi_device")]:note_on(augmented_note, velocity,
             assigned_channel)
-        print("playing", augmented_note, "on channel", assigned_channel)
+        print("special", "playing", augmented_note, "on channel", assigned_channel)
     end
     self.playing_notes[note] = true -- Store original note
 end
@@ -178,7 +178,7 @@ end
 
 function Looper:assign_channel_for_note(note)
     -- Try channels 1, 2, 3 in order
-    for ch = 1, 3 do
+    for ch = 1, 4 do
         if #self.channel_notes[ch] == 0 then
             -- Channel is empty, assign note here
             table.insert(self.channel_notes[ch], note) -- Store original note
@@ -187,8 +187,8 @@ function Looper:assign_channel_for_note(note)
     end
 
     -- All channels have notes, use channel 3 for overflow
-    table.insert(self.channel_notes[3], note) -- Store original note
-    return 3
+    table.insert(self.channel_notes[4], note) -- Store original note
+    return 4
 end
 
 function Looper:find_channel_for_note(note)
@@ -282,11 +282,10 @@ function Looper:init()
     self.beat_last_recorded = clock.get_beats()
     self.playing_notes = {}
     self.do_quantize = false
-    self.channel_notes = {
-        [1] = {},
-        [2] = {},
-        [3] = {}
-    } -- track notes per channel
+    self.channel_notes = {}
+    for i = 1, 16 do
+        self.channel_notes[i] = {}
+    end
     self.next_channel = 1 -- for round-robin assignment
     self.key_hold_start = {
         [2] = nil,
@@ -450,7 +449,7 @@ function Looper:redraw(shift)
     screen.move(128, 61)
     local midi_device = params:string("looper_" .. self.id .. "_midi_device")
     local midi_channel = params:string("looper_" .. self.id .. "_midi_channel_out")
-    screen.text_right("o: " .. midi_device .. " ch" .. midi_channel)
+    screen.text_right(midi_device .. " ch" .. midi_channel)
 
     -- plot starts in the queue
     for note, data in pairs(self.record_queue) do
