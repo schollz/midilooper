@@ -192,7 +192,7 @@ function Looper:assign_channel_for_note(note)
 end
 
 function Looper:find_channel_for_note(note)
-    for ch = 1, 3 do
+    for ch = 1, 16 do
         for i, stored_note in ipairs(self.channel_notes[ch]) do
             if stored_note == note then
                 return ch
